@@ -280,15 +280,14 @@ class CreateContainerTest(helpers.BaseTestCase):
             config={}
         )
 
-        container = self.client.create_container(
-            BUSYBOX, ['true'],
-            host_config=self.client.create_host_config(log_config=log_config)
-        )
-
         expected_msg = "logger: no log driver named 'asdf-nope' is registered"
-
         with pytest.raises(docker.errors.APIError) as excinfo:
             # raises an internal server error 500
+            container = self.client.create_container(
+                BUSYBOX, ['true'], host_config=self.client.create_host_config(
+                    log_config=log_config
+                )
+            )
             self.client.start(container)
 
         assert expected_msg in str(excinfo.value)
@@ -382,6 +381,22 @@ class CreateContainerTest(helpers.BaseTestCase):
             sorted(config['Config']['Env']) ==
             sorted(['Foo', 'Other=one', 'Blank='])
         )
+
+    @requires_api_version('1.22')
+    def test_create_with_tmpfs(self):
+        tmpfs = {
+            '/tmp1': 'size=3M'
+        }
+
+        container = self.client.create_container(
+            BUSYBOX,
+            ['echo'],
+            host_config=self.client.create_host_config(
+                tmpfs=tmpfs))
+
+        self.tmp_containers.append(container['Id'])
+        config = self.client.inspect_container(container)
+        assert config['HostConfig']['Tmpfs'] == tmpfs
 
 
 class VolumeBindTest(helpers.BaseTestCase):

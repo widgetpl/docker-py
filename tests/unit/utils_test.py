@@ -228,19 +228,7 @@ class KwargsFromEnvTest(base.BaseTestCase):
                           DOCKER_TLS_VERIFY='')
         os.environ.pop('DOCKER_CERT_PATH', None)
         kwargs = kwargs_from_env(assert_hostname=True)
-        self.assertEqual('https://192.168.59.103:2376', kwargs['base_url'])
-        self.assertTrue('ca.pem' in kwargs['tls'].ca_cert)
-        self.assertTrue('cert.pem' in kwargs['tls'].cert[0])
-        self.assertTrue('key.pem' in kwargs['tls'].cert[1])
-        self.assertEqual(True, kwargs['tls'].assert_hostname)
-        self.assertEqual(False, kwargs['tls'].verify)
-        try:
-            client = Client(**kwargs)
-            self.assertEqual(kwargs['base_url'], client.base_url)
-            self.assertEqual(kwargs['tls'].cert, client.cert)
-            self.assertFalse(kwargs['tls'].verify)
-        except TypeError as e:
-            self.fail(e)
+        self.assertEqual('tcp://192.168.59.103:2376', kwargs['base_url'])
 
     def test_kwargs_from_env_no_cert_path(self):
         try:
@@ -424,7 +412,12 @@ class ParseHostTest(base.BaseTestCase):
     def test_parse_host_tls(self):
         host_value = 'myhost.docker.net:3348'
         expected_result = 'https://myhost.docker.net:3348'
-        self.assertEqual(parse_host(host_value, None, True), expected_result)
+        assert parse_host(host_value, tls=True) == expected_result
+
+    def test_parse_host_tls_tcp_proto(self):
+        host_value = 'tcp://myhost.docker.net:3348'
+        expected_result = 'https://myhost.docker.net:3348'
+        assert parse_host(host_value, tls=True) == expected_result
 
 
 class ParseRepositoryTagTest(base.BaseTestCase):

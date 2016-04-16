@@ -1,6 +1,51 @@
 Change Log
 ==========
 
+1.8.0
+-----
+
+[List of PRs / issues for this release](https://github.com/docker/docker-py/issues?q=milestone%3A1.8.0+is%3Aclosed)
+
+### Features
+
+* Added `Client.update_container` method (Update resource configs of a
+  container)
+* Added support for gzipped context in `Client.build`
+* Added ability to specify IP address when connecting a container to a
+  network
+* Added `tmpfs` support to `Client.create_host_config`
+* Added support for the `changes` param in `Client.commit`
+* Added support for the `follow` param in `Client.logs`
+* Added support for the `check_duplicate` param in `Client.create_network`
+* Added support for the `decode` param in `Client.push` and `Client.pull`
+* Added `docker.from_env` shortcut function. Instantiates a client with
+  `kwargs_from_env`
+* `kwargs_from_env` now supports an optional `environment` parameter.
+  If present, values will be fetched from this dictionary instead of
+  `os.environ`
+
+
+### Bugfixes
+
+* Fixed a bug where TLS verification would fail when using IP addresses
+  in the certificate's `subjectAltName` fields
+* Fixed an issue where the default TLS version in TLSConfig would
+  break in some environments. `docker-py` now uses TLSv1 by default
+  This setting can be overridden using the `ssl_version` param in
+  `kwargs_from_env` or the `TLSConfig` constructor
+* Fixed a bug where `tcp` hosts would fail to connect to TLS-enabled
+  endpoints
+* Fixed a bug where loading a valid docker configuration file would fail
+* Fixed a bug where some environment variables specified through
+  `create_container` would be improperly formatted
+* Fixed a bug where using the unix socket connection would raise
+  an error in some edge-case situations
+
+### Miscellaneous
+
+* Default API version is now 1.22 (introduced in Docker 1.10.0)
+
+
 1.7.2
 -----
 

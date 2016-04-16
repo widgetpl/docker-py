@@ -12,17 +12,9 @@ import tempfile
 import pytest
 import six
 
-try:
-    from ssl import OP_NO_SSLv3, OP_NO_SSLv2, OP_NO_TLSv1
-except ImportError:
-    OP_NO_SSLv2 = 0x1000000
-    OP_NO_SSLv3 = 0x2000000
-    OP_NO_TLSv1 = 0x4000000
-
 from docker.client import Client
 from docker.constants import DEFAULT_DOCKER_API_VERSION
 from docker.errors import DockerException, InvalidVersion
-from docker.ssladapter import ssladapter
 from docker.utils import (
     parse_repository_tag, parse_host, convert_filters, kwargs_from_env,
     create_host_config, Ulimit, LogConfig, parse_bytes, parse_env_file,
@@ -86,6 +78,16 @@ class HostConfigTest(base.BaseTestCase):
         self.assertRaises(
             InvalidVersion, lambda: create_host_config(version='1.18.3',
                                                        oom_kill_disable=True))
+
+    def test_create_host_config_with_oom_score_adj(self):
+        config = create_host_config(version='1.22', oom_score_adj=100)
+        self.assertEqual(config.get('OomScoreAdj'), 100)
+        self.assertRaises(
+            InvalidVersion, lambda: create_host_config(version='1.21',
+                                                       oom_score_adj=100))
+        self.assertRaises(
+            TypeError, lambda: create_host_config(version='1.22',
+                                                  oom_score_adj='100'))
 
     def test_create_endpoint_config_with_aliases(self):
         config = create_endpoint_config(version='1.22', aliases=['foo', 'bar'])
@@ -248,6 +250,20 @@ class KwargsFromEnvTest(base.BaseTestCase):
         finally:
             if temp_dir:
                 shutil.rmtree(temp_dir)
+
+    def test_kwargs_from_env_alternate_env(self):
+        # Values in os.environ are entirely ignored if an alternate is
+        # provided
+        os.environ.update(
+            DOCKER_HOST='tcp://192.168.59.103:2376',
+            DOCKER_CERT_PATH=TEST_CERT_DIR,
+            DOCKER_TLS_VERIFY=''
+        )
+        kwargs = kwargs_from_env(environment={
+            'DOCKER_HOST': 'http://docker.gensokyo.jp:2581',
+        })
+        assert 'http://docker.gensokyo.jp:2581' == kwargs['base_url']
+        assert 'tls' not in kwargs
 
 
 class ConverVolumeBindsTest(base.BaseTestCase):
@@ -938,12 +954,3 @@ class TarTest(base.Cleanup, base.BaseTestCase):
             self.assertEqual(
                 sorted(tar_data.getnames()), ['bar', 'bar/foo', 'foo']
             )
-
-
-class SSLAdapterTest(base.BaseTestCase):
-    def test_only_uses_tls(self):
-        ssl_context = ssladapter.urllib3.util.ssl_.create_urllib3_context()
-
-        assert ssl_context.options & OP_NO_SSLv3
-        assert ssl_context.options & OP_NO_SSLv2
-        assert not ssl_context.options & OP_NO_TLSv1

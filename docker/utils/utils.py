@@ -91,10 +91,10 @@ def decode_json_header(header):
     return json.loads(data)
 
 
-def tar(path, exclude=None, dockerfile=None, fileobj=None):
+def tar(path, exclude=None, dockerfile=None, fileobj=None, gzip=False):
     if not fileobj:
         fileobj = tempfile.NamedTemporaryFile()
-    t = tarfile.open(mode='w', fileobj=fileobj)
+    t = tarfile.open(mode='w:gz' if gzip else 'w', fileobj=fileobj)
 
     root = os.path.abspath(path)
     exclude = exclude or []
@@ -479,15 +479,17 @@ def parse_devices(devices):
     return device_list
 
 
-def kwargs_from_env(ssl_version=None, assert_hostname=None):
-    host = os.environ.get('DOCKER_HOST')
+def kwargs_from_env(ssl_version=None, assert_hostname=None, environment=None):
+    if not environment:
+        environment = os.environ
+    host = environment.get('DOCKER_HOST')
 
     # empty string for cert path is the same as unset.
-    cert_path = os.environ.get('DOCKER_CERT_PATH') or None
+    cert_path = environment.get('DOCKER_CERT_PATH') or None
 
     # empty string for tls verify counts as "false".
     # Any value or 'unset' counts as true.
-    tls_verify = os.environ.get('DOCKER_TLS_VERIFY')
+    tls_verify = environment.get('DOCKER_TLS_VERIFY')
     if tls_verify == '':
         tls_verify = False
     else:
@@ -614,7 +616,7 @@ def create_host_config(binds=None, port_bindings=None, lxc_conf=None,
                        mem_limit=None, memswap_limit=None, mem_swappiness=None,
                        cgroup_parent=None, group_add=None, cpu_quota=None,
                        cpu_period=None, oom_kill_disable=False, shm_size=None,
-                       version=None, tmpfs=None):
+                       version=None, tmpfs=None, oom_score_adj=None):
 
     host_config = {}
 
@@ -663,6 +665,15 @@ def create_host_config(binds=None, port_bindings=None, lxc_conf=None,
             raise host_config_version_error('oom_kill_disable', '1.19')
 
         host_config['OomKillDisable'] = oom_kill_disable
+
+    if oom_score_adj:
+        if version_lt(version, '1.22'):
+            raise host_config_version_error('oom_score_adj', '1.22')
+        if not isinstance(oom_score_adj, int):
+            raise host_config_type_error(
+                'oom_score_adj', oom_score_adj, 'int'
+            )
+        host_config['OomScoreAdj'] = oom_score_adj
 
     if publish_all_ports:
         host_config['PublishAllPorts'] = publish_all_ports
